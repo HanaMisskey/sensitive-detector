@@ -11,7 +11,7 @@ export type DetectErrorCode =
   | 'DETECTION_FAILED'; // 500（classify 失敗 / タイムアウト / 未分類）
 
 /**
- * レスポンスに載せる予測値。className は Drawing/Hentai/Neutral/Porn/Sexy のいずれか。
+ * レスポンスに載せる予測値。className は nsfw/safe のいずれか。
  * className を `string` に緩めて「Misskey が任意のクラス名を find できる」契約を表す。
  */
 export type Prediction = {

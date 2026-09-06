@@ -1,8 +1,8 @@
 # `POST /v1/detect-images`
 
-複数の正規化済み画像を `multipart/form-data` で受け取り、各画像について推論モデルの生の予測値を返す。
+複数の正規化済み画像を `multipart/form-data` で受け取り、各画像について推論モデルのSoftmax 適用後の確率を返す。
 
-この API は画像のリサイズ、回転、透過塗りつぶし、動画フレーム抽出、しきい値判定を行わない。呼び出し元は事前に Misskey 本体と同じ正規化を済ませ、返ってきた `predictions` を使って `sensitive` / `porn` などの判定を行う。
+この API は画像のリサイズ、回転、透過塗りつぶし、動画フレーム抽出、しきい値判定を行わない。呼び出し元は事前に 回転・透過塗りつぶしと Catmull–Rom（bicubic）による直接 384×384 リサイズを済ませ、返ってきた `predictions` を使って `sensitive` / `porn` などの判定を行う。
 
 ## リクエスト
 
@@ -44,7 +44,7 @@ Authorization: Bearer <token>
 | `maxBinarySize` | 各画像パートのバイト数 | HTTP 200 のまま、該当 `results[i]` が `REQUEST_TOO_LARGE`。 |
 | `maxImageWidth` / `maxImageHeight` / `maxImagePixels` | デコード後の画像 dimensions | HTTP 200 のまま、該当 `results[i]` が `REQUEST_TOO_LARGE`。 |
 
-既定値では 299x299 までの正規化済み画像を想定している。
+既定値では 384x384 の PNG が必要。寸法が異なる PNG は IMAGE_DECODE_FAILED になる（上限超過は REQUEST_TOO_LARGE）。
 
 ## レスポンス
 
@@ -99,8 +99,8 @@ type DetectErrorCode =
 | Field | 型 | 説明 |
 | --- | --- | --- |
 | `success` | `true` | パート単位の推論に成功したことを表す。 |
-| `predictions` | `Prediction[]` | 推論モデルの生出力。サービス側ではしきい値判定やクラスの集約をしない。 |
-| `predictions[].className` | `string` | クラス名。現在同梱しているモデルでは `Drawing`、`Hentai`、`Neutral`、`Porn`、`Sexy`。API 型としては将来のモデル差し替えに備えて `string`。 |
+| `predictions` | `Prediction[]` | Softmax 適用後の確率（確率降順）。サービス側ではしきい値判定やクラスの集約をしない。 |
+| `predictions[].className` | `string` | クラス名。現在同梱しているモデルでは `nsfw`、`safe`。API 型としては将来のモデル差し替えに備えて `string`。 |
 | `predictions[].probability` | `number` | 確率。通常は `0` 以上 `1` 以下。 |
 
 #### 失敗パート
@@ -197,9 +197,8 @@ for (const [index, result] of body.result.results.entries()) {
     continue;
   }
 
-  const porn = result.predictions.find((p) => p.className === 'Porn')?.probability ?? 0;
-  const hentai = result.predictions.find((p) => p.className === 'Hentai')?.probability ?? 0;
-  console.log({ index, porn, hentai });
+  const nsfw = result.predictions.find((p) => p.className === 'nsfw')?.probability ?? 0;
+  console.log({ index, nsfw });
 }
 ```
 
@@ -213,11 +212,8 @@ for (const [index, result] of body.result.results.entries()) {
       {
         "success": true,
         "predictions": [
-          { "className": "Neutral", "probability": 0.95 },
-          { "className": "Drawing", "probability": 0.03 },
-          { "className": "Sexy", "probability": 0.01 },
-          { "className": "Hentai", "probability": 0.005 },
-          { "className": "Porn", "probability": 0.005 }
+          { "className": "safe", "probability": 0.95 },
+          { "className": "nsfw", "probability": 0.05 }
         ]
       }
     ]
@@ -237,11 +233,8 @@ for (const [index, result] of body.result.results.entries()) {
       {
         "success": true,
         "predictions": [
-          { "className": "Neutral", "probability": 0.95 },
-          { "className": "Drawing", "probability": 0.03 },
-          { "className": "Sexy", "probability": 0.01 },
-          { "className": "Hentai", "probability": 0.005 },
-          { "className": "Porn", "probability": 0.005 }
+          { "className": "safe", "probability": 0.95 },
+          { "className": "nsfw", "probability": 0.05 }
         ]
       },
       {

@@ -15,8 +15,8 @@ const buffer = Buffer.from('not-a-real-image');
 describe('detectImage', () => {
   it('returns success with raw predictions when classify succeeds', async () => {
     const predictions = [
-      { className: 'Neutral' as const, probability: 0.9 },
-      { className: 'Porn' as const, probability: 0.1 },
+      { className: 'safe' as const, probability: 0.9 },
+      { className: 'nsfw' as const, probability: 0.1 },
     ];
     const ctx = {
       classifier: classifierReturning({ ok: true, predictions }),

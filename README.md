@@ -2,7 +2,7 @@
 
 Misskey 本体の `AiService.detectSensitive`（NSFW 推論）を切り出した、独立 HTTP サイドカーサービス。推論エンジンには [ONNX Runtime](https://onnxruntime.ai/) を使用する。
 
-切り出して嬉しいのは **ネイティブ ML スタック（ONNX Runtime、モデルのメモリ常駐）の隔離** であり、本サービスはそこだけに徹する。画像の正規化（リサイズ・回転・透過塗りつぶし）や動画フレーム抽出は **Misskey 本体に残し**、本サービスは **299×299 に正規化済みの PNG を受け取り、生の予測値をそのまま返す**。しきい値判定（`sensitive` / `porn`）も本体側に残す。
+切り出して嬉しいのは **ネイティブ ML スタック（ONNX Runtime、モデルのメモリ常駐）の隔離** であり、本サービスはそこだけに徹する。画像の正規化（リサイズ・回転・透過塗りつぶし）や動画フレーム抽出は **Misskey 本体に残し**、本サービスは **384×384 に正規化済みの PNG を受け取り、Softmax 適用後の確率を返す**。しきい値判定（`sensitive` / `porn`）も本体側に残す。
 
 背景: [misskey-dev/misskey#16804](https://github.com/misskey-dev/misskey/issues/16804)
 
@@ -28,7 +28,7 @@ Misskey 本体の `AiService.detectSensitive`（NSFW 推論）を切り出した
     "results": [
       {
         "success": true,
-        "predictions": [{ "className": "Neutral", "probability": 0.98 }]
+        "predictions": [{ "className": "safe", "probability": 0.98 }, { "className": "nsfw", "probability": 0.02 }]
       },
       {
         "success": false,
@@ -40,7 +40,7 @@ Misskey 本体の `AiService.detectSensitive`（NSFW 推論）を切り出した
 ```
 
 `results` の順序はリクエストパーツの順序と一致する。1 枚でも失敗しても全体は 200 を返す（部分成功）。
-成功パートの `predictions` は推論モデルの生出力で、サービス側ではしきい値判定をしない。
+成功パートの `predictions` はSoftmax 適用後の確率で、サービス側ではしきい値判定をしない。
 各パーツのサイズ上限は `maxBinarySize` を個別適用する。
 
 全体失敗（4xx/5xx）はリクエスト全体に問題がある場合のみ:
@@ -71,10 +71,10 @@ curl -X POST localhost:3000/v1/detect-images \
 - `port` / `socket`: どちらか一方必須。
 - `host`: `port` 待ち受け時の bind ホスト。既定 `127.0.0.1`（ローカルのみ）。外部公開する場合のみ `0.0.0.0` を明示する（Docker は `config.docker.mjs` で `0.0.0.0` 指定済み）。
   - **移行メモ**: 既定が `0.0.0.0` から `127.0.0.1` に変わった。`port` 待ち受けで別ホスト／別コンテナから到達させていた既存利用者は、`host: '0.0.0.0'`（や特定の bind アドレス）を明示する必要がある。Docker 利用は変更不要。
-- `modelDir`: 必須。ONNX モデルディレクトリ（`nsfw_model.onnx` を含むパス）。
+- `modelDir`: 必須。ONNX モデルディレクトリ（`model.onnx` を含むパス）。
 - `apiKey`: 静的 Bearer token。`port` で TCP 待ち受けする場合は `apiKey` が必須。
 - `allowUnauthenticatedTcp`: `port` で `apiKey` なしを許すためのフラグ。開発用・外部から到達不能な環境以外では使わない。
-- `maxBinarySize`(1MB) / `maxImageWidth`(299) / `maxImageHeight`(299) / `maxImagePixels`(89401) / `maxParts`(10) / `maxBodySize`(12MB) / `maxConcurrentJobs`(2) / `requestTimeoutMs`(60000)。
+- `maxBinarySize`(1MB) / `maxImageWidth`(384) / `maxImageHeight`(384) / `maxImagePixels`(147456) / `maxParts`(10) / `maxBodySize`(12MB) / `maxConcurrentJobs`(2) / `requestTimeoutMs`(60000)。
 
 ## 開発
 
@@ -129,5 +129,7 @@ docker run --rm -p 127.0.0.1:3009:3009 \
 ## Misskey 本体との統合（このリポジトリの範囲外）
 
 本体側で `AiService.detectSensitive` を本サービスへの HTTP 呼び出しに置換する。`FileInfoService` は
-現行どおり正規化・フレーム抽出・`judgePrediction`・集約を担い、各フレームを 299×299 PNG に正規化して
-`/v1/detect-images` に一括送信する。これにより現行挙動が完全に保存される。
+正規化・フレーム抽出・判定・集約を担い、各フレームを 384×384 PNG に正規化して
+`/v1/detect-images` に一括送信する。呼び出し側は旧5クラスの判定を `nsfw` の確率に基づく判定へ変更する必要がある。旧モデルとの判定互換性はなく、しきい値は実データで調整する。
+
+同梱モデルは [KanariKanaru/nsfw-image-detection-384-onnx](https://huggingface.co/KanariKanaru/nsfw-image-detection-384-onnx)。取得元とライセンスは [nsfw-model/README.md](nsfw-model/README.md) を参照。呼び出し側は回転・透過塗りつぶし後、Catmull–Rom（bicubic）で直接 384×384 にリサイズする。

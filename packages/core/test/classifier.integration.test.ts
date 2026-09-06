@@ -3,7 +3,7 @@ import { type Classifier, createClassifier } from '../src/classifier.js';
 import { integrationEnabled, TEST_MODEL_DIR } from './helpers/integration-guard.js';
 import { encodeRgbPng } from './helpers/png.js';
 
-const NSFW_CLASS_NAMES = ['Drawing', 'Hentai', 'Neutral', 'Porn', 'Sexy'];
+const NSFW_CLASS_NAMES = ['nsfw', 'safe'];
 
 const d = (await integrationEnabled()) ? describe : describe.skip;
 
@@ -19,15 +19,15 @@ d('classifier (real ONNX model)', () => {
     expect(classifier.available).toBe(true);
   });
 
-  it('classifies a normalized 299x299 PNG into the five NSFW classes', async () => {
-    const png = encodeRgbPng(299, 299, [119, 119, 119]);
+  it('classifies a normalized 384x384 PNG into the two NSFW classes', async () => {
+    const png = encodeRgbPng(384, 384, [119, 119, 119]);
     const result = await classifier.classify(png);
 
     expect(result.ok).toBe(true);
     if (!result.ok) {
       return;
     }
-    expect(result.predictions).toHaveLength(5);
+    expect(result.predictions).toHaveLength(2);
     expect([...result.predictions.map((p) => p.className)].sort()).toEqual(NSFW_CLASS_NAMES);
     for (const prediction of result.predictions) {
       expect(prediction.probability).toBeGreaterThanOrEqual(0);

@@ -22,9 +22,9 @@ d('POST /v1/detect-images (real model, real HTTP server)', () => {
       apiKey: API_KEY,
       allowUnauthenticatedTcp: false,
       maxBinarySize: 1_048_576,
-      maxImageWidth: 299,
-      maxImageHeight: 299,
-      maxImagePixels: 299 * 299,
+      maxImageWidth: 384,
+      maxImageHeight: 384,
+      maxImagePixels: 384 * 384,
       maxParts: 10,
       maxBodySize: 12_582_912,
       maxConcurrentJobs: 2,
@@ -63,8 +63,8 @@ d('POST /v1/detect-images (real model, real HTTP server)', () => {
       body: form,
     });
 
-  it('returns 200 with five predictions per image for two normalized PNGs', async () => {
-    const png = encodeRgbPng(299, 299, [119, 119, 119]);
+  it('returns 200 with two predictions per image for two normalized PNGs', async () => {
+    const png = encodeRgbPng(384, 384, [119, 119, 119]);
     const res = await authedPost(
       buildForm([
         { data: png, contentType: 'image/png' },
@@ -80,19 +80,13 @@ d('POST /v1/detect-images (real model, real HTTP server)', () => {
     expect(body.result.results).toHaveLength(2);
     for (const r of body.result.results) {
       expect(r.success).toBe(true);
-      expect(r.predictions).toHaveLength(5);
-      expect([...r.predictions.map((p) => p.className)].sort()).toEqual([
-        'Drawing',
-        'Hentai',
-        'Neutral',
-        'Porn',
-        'Sexy',
-      ]);
+      expect(r.predictions).toHaveLength(2);
+      expect([...r.predictions.map((p) => p.className)].sort()).toEqual(['nsfw', 'safe']);
     }
   });
 
   it('returns partial success when one part has corrupt image bytes', async () => {
-    const png = encodeRgbPng(299, 299, [119, 119, 119]);
+    const png = encodeRgbPng(384, 384, [119, 119, 119]);
     const res = await authedPost(
       buildForm([
         { data: png, contentType: 'image/png' },

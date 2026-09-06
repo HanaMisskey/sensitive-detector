@@ -1,6 +1,6 @@
 export const DEFAULT_MAX_BINARY_SIZE = 1_048_576; // 1MB
-export const DEFAULT_MAX_IMAGE_WIDTH = 299;
-export const DEFAULT_MAX_IMAGE_HEIGHT = 299;
+export const DEFAULT_MAX_IMAGE_WIDTH = 384;
+export const DEFAULT_MAX_IMAGE_HEIGHT = 384;
 export const DEFAULT_MAX_IMAGE_PIXELS = DEFAULT_MAX_IMAGE_WIDTH * DEFAULT_MAX_IMAGE_HEIGHT;
 export const DEFAULT_MAX_CONCURRENT_JOBS = 2;
 export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
@@ -39,11 +39,11 @@ export type Config = {
   allowUnauthenticatedTcp?: boolean;
   /** バイナリ入力の上限バイト数。デフォルト 1MB。 */
   maxBinarySize?: number;
-  /** デコード後画像幅の上限。デフォルト 299px。 */
+  /** デコード後画像幅の上限。デフォルト 384px。 */
   maxImageWidth?: number;
-  /** デコード後画像高さの上限。デフォルト 299px。 */
+  /** デコード後画像高さの上限。デフォルト 384px。 */
   maxImageHeight?: number;
-  /** デコード後総ピクセル数の上限。デフォルト 299×299。 */
+  /** デコード後総ピクセル数の上限。デフォルト 384×384。 */
   maxImagePixels?: number;
   /** multipart リクエストの最大パーツ数。デフォルト 10。 */
   maxParts?: number;

@@ -26,11 +26,8 @@ export function mockClassifier(result: ClassifyResult, available = true): Classi
 const okClassifier = mockClassifier({
   ok: true,
   predictions: [
-    { className: 'Neutral', probability: 0.95 },
-    { className: 'Drawing', probability: 0.03 },
-    { className: 'Sexy', probability: 0.01 },
-    { className: 'Hentai', probability: 0.005 },
-    { className: 'Porn', probability: 0.005 },
+    { className: 'safe', probability: 0.95 },
+    { className: 'nsfw', probability: 0.05 },
   ],
 });
 
@@ -40,9 +37,9 @@ export function buildTestApp(overrides: TestOverrides = {}) {
     modelDir: '/models/',
     allowUnauthenticatedTcp: true,
     maxBinarySize: 1024,
-    maxImageWidth: 299,
-    maxImageHeight: 299,
-    maxImagePixels: 299 * 299,
+    maxImageWidth: 384,
+    maxImageHeight: 384,
+    maxImagePixels: 384 * 384,
     maxParts: 10,
     maxBodySize: 10 * 1024 * 1024,
     maxConcurrentJobs: 2,

@@ -48,17 +48,17 @@ export async function computeIsSupportedCpu(arch: string = process.arch): Promis
   return arch === 'x64' || arch === 'arm64';
 }
 
-/** モデル入力サイズ（InceptionV3）。 */
-const MODEL_SIZE = 299;
-/** nsfwjs 互換の出力クラス名（softmax 出力順）。 */
-const CLASS_NAMES = ['Drawing', 'Hentai', 'Neutral', 'Porn', 'Sexy'] as const;
+/** モデル入力サイズ（ViT tiny patch16）。 */
+const MODEL_SIZE = 384;
+/** 出力クラス名（logits 出力順）。 */
+const CLASS_NAMES = ['nsfw', 'safe'] as const;
 /** ONNX モデルの入力テンソル名。 */
 const INPUT_NAME = 'input';
 /** ONNX モデルの出力テンソル名。 */
-const OUTPUT_NAME = 'dense_3';
+const OUTPUT_NAME = 'logits';
 
 /**
- * PNG バイト列をデコードし、299×299 RGB の Float32Array（[0, 1] 正規化済み）を返す。
+ * PNG バイト列をデコードし、384×384 RGB の Float32Array（[-1, 1] 正規化済み、NCHW）を返す。
  * デコード失敗・サイズ不一致は undefined を返す。
  */
 function decodePngToFloat32(buffer: Buffer): Float32Array | undefined {
@@ -71,13 +71,13 @@ function decodePngToFloat32(buffer: Buffer): Float32Array | undefined {
   if (png.width !== MODEL_SIZE || png.height !== MODEL_SIZE) {
     return undefined;
   }
-  // PNG.sync.read は RGBA (4ch) を返す。RGB 3ch に変換しつつ [0, 1] に正規化する。
+  // PNG.sync.read は RGBA (4ch) を返す。RGB の CHW 配列に変換しつつ [-1, 1] に正規化する。
   const pixelCount = MODEL_SIZE * MODEL_SIZE;
   const float32 = new Float32Array(pixelCount * 3);
   for (let i = 0; i < pixelCount; i++) {
-    float32[i * 3] = (png.data[i * 4] ?? 0) / 255;
-    float32[i * 3 + 1] = (png.data[i * 4 + 1] ?? 0) / 255;
-    float32[i * 3 + 2] = (png.data[i * 4 + 2] ?? 0) / 255;
+    float32[i] = ((png.data[i * 4] ?? 0) / 255 - 0.5) / 0.5;
+    float32[pixelCount + i] = ((png.data[i * 4 + 1] ?? 0) / 255 - 0.5) / 0.5;
+    float32[pixelCount * 2 + i] = ((png.data[i * 4 + 2] ?? 0) / 255 - 0.5) / 0.5;
   }
   return float32;
 }
@@ -115,18 +115,25 @@ function readyClassifier(session: OnnxSession, TensorCtor: OnnxTensorCtor): Clas
         return { ok: false, code: 'IMAGE_DECODE_FAILED' };
       }
       try {
-        const inputTensor = new TensorCtor('float32', float32, [1, MODEL_SIZE, MODEL_SIZE, 3]);
+        const inputTensor = new TensorCtor('float32', float32, [1, 3, MODEL_SIZE, MODEL_SIZE]);
         const results = await session.run({ [INPUT_NAME]: inputTensor });
         const output = results[OUTPUT_NAME];
         if (!output) {
           return { ok: false, code: 'DETECTION_FAILED' };
         }
         const data = output.data as Float32Array;
+        if (data.length !== CLASS_NAMES.length || !data.every(Number.isFinite)) {
+          return { ok: false, code: 'DETECTION_FAILED' };
+        }
+        // モデルは logits を返す。最大値を引いて overflow を防いでから softmax を適用する。
+        const maxLogit = Math.max(...data);
+        const weights = Array.from(data, (value) => Math.exp(value - maxLogit));
+        const total = weights.reduce((sum, value) => sum + value, 0);
         const predictions: Prediction[] = CLASS_NAMES.map((className, i) => ({
           className,
-          probability: data[i] ?? 0,
+          probability: (weights[i] ?? 0) / total,
         }));
-        // nsfwjs 互換: 確率降順でソートする。
+        // 確率降順でソートする。
         predictions.sort((a, b) => b.probability - a.probability);
         return { ok: true, predictions };
       } catch {
@@ -156,7 +163,7 @@ export async function createClassifier(modelDir: string, deps: ClassifierDeps = 
     const loadOnnx = deps.loadOnnx ?? defaultLoadOnnx;
     const { InferenceSession, Tensor } = await loadOnnx();
 
-    const modelPath = join(modelDir, 'nsfw_model.onnx');
+    const modelPath = join(modelDir, 'model.onnx');
     const sessionOptions: OnnxSessionOptions = {};
     if (deps.intraOpNumThreads !== undefined && deps.intraOpNumThreads > 0) {
       sessionOptions.intraOpNumThreads = deps.intraOpNumThreads;

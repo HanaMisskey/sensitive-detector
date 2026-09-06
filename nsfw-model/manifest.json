@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "marqo-nsfw-image-detection-384",
+  "version": "0.1.0",
+  "runtime": {
+    "kind": "onnxruntime",
+    "executionProvider": "cpu"
+  },
+  "source": {
+    "type": "huggingface",
+    "repo": "KanariKanaru/nsfw-image-detection-384",
+    "revision": "dcbee2f0570c16c3212bc6b81bb8911194b9fa62",
+    "license": "Apache-2.0"
+  },
+  "format": {
+    "type": "onnx",
+    "dtype": "float32",
+    "quantized": false,
+    "opset": 17
+  },
+  "files": [
+    {
+      "path": "model.onnx",
+      "sha256": "e9350e576608afe4b57a089ffeb0ebafa1389cdcea4882dd61df28c45f1c24d2"
+    }
+  ],
+  "input": {
+    "width": 384,
+    "height": 384,
+    "layout": "NCHW",
+    "dtype": "float32",
+    "color": "RGB",
+    "resize": {
+      "mode": "resize_exact",
+      "filter": "catmullrom"
+    },
+    "mean": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "std": [
+      0.5,
+      0.5,
+      0.5
+    ]
+  },
+  "output": {
+    "name": "logits",
+    "labels": [
+      "nsfw",
+      "safe"
+    ],
+    "postprocess": "softmax"
+  },
+  "conversion": {
+    "tool": "torch.onnx.export",
+    "date": "2026-06-02",
+    "script": "tools/model-conversion/src/nsfw_model_conversion/export_marqo_to_onnx.py"
+  }
+}

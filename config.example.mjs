@@ -30,9 +30,9 @@ export default {
 
   // --- リクエスト制限（任意。以下はデフォルト値） ---
   maxBinarySize: 1_048_576, // 1MB（パーツ個別の上限）
-  maxImageWidth: 299,
-  maxImageHeight: 299,
-  maxImagePixels: 89_401, // 299 × 299
+  maxImageWidth: 384,
+  maxImageHeight: 384,
+  maxImagePixels: 147_456, // 384 × 384
   maxParts: 10, // multipart パーツ数の上限
   maxBodySize: 12_582_912, // 12MB（総 body の上限: 10 parts × 1MB + boundary/header 余白）
   maxConcurrentJobs: 2,
