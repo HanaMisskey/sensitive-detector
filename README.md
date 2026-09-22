@@ -103,17 +103,6 @@ pnpm --filter @misskey-sensitive-detector/server dev -- --config ./config.dev.mj
 モデル（`nsfw-model/`）はイメージに同梱され `/models` へ焼き込まれる。config だけ実行時にマウントする。
 ベースは `node:22-bookworm-slim`（glibc）。フレーム抽出は本体側に残すため **ffmpeg は不要**。
 
-### 公開イメージ
-
-[`kanarikanaru/sensitive-detector`](https://hub.docker.com/r/kanarikanaru/sensitive-detector)
-に `linux/amd64` / `linux/arm64` のイメージを公開する。
-タグ形式は `<ブランチ名>-<バージョン>-hanami.<コミット数>-<短いSHA>`
-（例: `main-0.0.2-hanami.25-842549b`）。利用時は完全なタグを指定する。
-
-`main` への push、または GitHub Actions の `Publish Docker image` の手動実行で公開する。
-Actions Secrets の `DOCKER_USERNAME` に Docker Hub のユーザー名、
-`DOCKER_PASSWORD` に書き込み権限のあるアクセストークンを設定する。
-
 ### compose（推奨）
 
 ```sh
