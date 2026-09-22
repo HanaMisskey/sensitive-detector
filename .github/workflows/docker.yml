@@ -1,32 +1,33 @@
 name: Publish Docker image
 
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
 
 env:
-  REGISTRY_IMAGE: ghcr.io/misskey-dev/sensitive-detector
-  TAGS: |
-    type=semver,pattern={{version}}
-    type=semver,pattern={{major}}.{{minor}}
-    type=semver,pattern={{major}}
+  REGISTRY_IMAGE: kanarikanaru/sensitive-detector
 
 jobs:
   # see https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
-    if: github.repository == 'misskey-dev/sensitive-detector'
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    if: github.repository == 'HanaMisskey/sensitive-detector'
+    outputs:
+      image-tag: ${{ steps.stamp_version.outputs.image_tag }}
+      package-version: ${{ steps.stamp_version.outputs.package_version }}
     steps:
       - name: Prepare
         run: |
@@ -34,6 +35,38 @@ jobs:
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
       - name: Check out the repo
         uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+      - name: Stamp package version
+        id: stamp_version
+        run: |
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          const core = pkg.version.split(/[+-]/)[0];
+          if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(core)) {
+            throw new Error(`Invalid base version: ${pkg.version}`);
+          }
+          const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+          const buildCount = git('rev-list', '--count', 'HEAD');
+          const shortSha = git('rev-parse', '--short', 'HEAD');
+          const version = `${core}-hanami.${buildCount}+${shortSha}`;
+          const imageTag = `${process.env.GITHUB_REF_NAME}-${version}`
+            .toLowerCase().replace(/[^a-z0-9_.-]/g, '-');
+          if (!/^[a-z0-9_][a-z0-9_.-]{0,127}$/.test(imageTag)) {
+            throw new Error(`Invalid Docker tag (maximum 128 characters): ${imageTag}`);
+          }
+
+          pkg.version = version;
+          writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`);
+          appendFileSync(process.env.GITHUB_OUTPUT, `package_version=${version}\nimage_tag=${imageTag}\n`);
+          NODE
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       - name: Docker meta
@@ -41,13 +74,15 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY_IMAGE }}
-          tags: ${{ env.TAGS }}
-      - name: Log in to GitHub Container Registry
+          flavor: latest=false
+          tags: type=raw,value=${{ steps.stamp_version.outputs.image_tag }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.stamp_version.outputs.package_version }}
+      - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v7
@@ -91,13 +126,15 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY_IMAGE }}
-          tags: ${{ env.TAGS }}
-      - name: Login to GitHub Container Registry
+          flavor: latest=false
+          tags: type=raw,value=${{ needs.build.outputs.image-tag }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.build.outputs.package-version }}
+      - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
