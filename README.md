@@ -103,6 +103,39 @@ pnpm --filter @misskey-sensitive-detector/server dev -- --config ./config.dev.mj
 モデル（`nsfw-model/`）はイメージに同梱され `/models` へ焼き込まれる。config だけ実行時にマウントする。
 ベースは `node:22-bookworm-slim`（glibc）。フレーム抽出は本体側に残すため **ffmpeg は不要**。
 
+### Docker Hub への公開とバージョン
+
+`HanaMisskey/sensitive-detector` の `main` への push、または GitHub Actions の
+`Publish Docker image` の手動実行で、
+[`kanarikanaru/sensitive-detector`](https://hub.docker.com/r/kanarikanaru/sensitive-detector)
+へ `linux/amd64` / `linux/arm64` のイメージを公開する。
+手動実行では選択したブランチをビルドする。Release の公開ではこの workflow は実行しない。
+
+リポジトリの Actions Secrets に以下を設定する。
+
+- `DOCKER_USERNAME`: Docker Hub のユーザー名（`kanarikanaru`）。
+- `DOCKER_PASSWORD`: 公開先に書き込み可能な Docker Hub アクセストークン。
+
+バージョンの suffix は
+[HanaMisskey/misskey](https://github.com/HanaMisskey/misskey/blob/hanami/.github/workflows/docker.yml)
+と同じ `-hanami.<コミット数>+<短いSHA>` とする。
+ルートの `package.json` の `major.minor.patch` を基準に、全履歴から
+`git rev-list --count HEAD` と `git rev-parse --short HEAD` で生成し、
+CI 内のルート `package.json` とイメージの `org.opencontainers.image.version` ラベルへ設定する。
+既存の prerelease / build metadata がある場合は、この suffix で置き換える。
+Git 上の `package.json` には元のバージョンを維持し、CI によるバージョン更新のコミットは作らない。
+
+Docker タグは `<ブランチ名>-<生成したバージョン>` を小文字化し、
+`+` や `/` など使用できない文字を `-` に置き換えたものになる。
+例えば、元のバージョンが `0.0.2`、コミット数が `25`、短い SHA が `842549b` の場合:
+
+- バージョン: `0.0.2-hanami.25+842549b`
+- `main` のイメージ: `kanarikanaru/sensitive-detector:main-0.0.2-hanami.25-842549b`
+
+同じブランチ・コミットの再実行では同じタグを生成する。`latest` や `0.0`、`0` といった別名タグは生成しない。
+SemVer 上の `-hanami.<コミット数>` は prerelease、`+<短いSHA>` は build metadata に当たる。
+公開済みイメージは、上記の完全なタグを指定して取得する。
+
 ### compose（推奨）
 
 ```sh
