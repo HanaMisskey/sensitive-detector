@@ -1,17 +1,11 @@
 {
   "forkProcessing": "enabled",
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
+  "extends": ["config:recommended"],
   "timezone": "Asia/Tokyo",
-  "schedule": [
-    "* 0 * * *"
-  ],
+  "schedule": ["* 0 * * *"],
   "prHourlyLimit": 5,
-  "labels": [
-    "dependencies"
-  ],
+  "labels": ["dependencies"],
   "osvVulnerabilityAlerts": true,
   "dependencyDashboardOSVVulnerabilitySummary": "unresolved",
   "minimumReleaseAge": "7 days",
@@ -21,14 +15,8 @@
   "packageRules": [
     {
       "groupName": "Non-breaking updates",
-      "matchUpdateTypes": [
-        "minor",
-        "patch",
-        "digest"
-      ],
-      "matchJsonata": [
-        "isBreaking != true"
-      ]
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "matchJsonata": ["isBreaking != true"]
     }
   ]
 }
