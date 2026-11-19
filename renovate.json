@@ -1,0 +1,12 @@
+{
+  "forkProcessing": "enabled",
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["local>HanaMisskey/renovate-config"],
+  "packageRules": [
+    {
+      "description": "Issues が無効で Dependency Dashboard を作れないため、major も選択を待たずに PR にする",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": false
+    }
+  ]
+}
